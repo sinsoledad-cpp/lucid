@@ -3,53 +3,70 @@
 syntax = "v1"
 
 info(
-	title:   "User Service API"
-	desc:    "HTTP gateway for the user service, handling registration and login."
-	author:  "Your Name"
-	version: "1.0.0"
+	title: "短链接服务 - 用户模块API"
+	desc: "提供用户注册和登录功能"
+	author: "Lucid Team"
+	version: "v1.0.0"
 )
 
 type (
-	// User registration request body.
+	// 用户注册请求
 	RegisterReq {
-		// Username for the new account, must be non-empty.
-		Username string `json:"username" validate:"required,min=3,max=50"`
-		// Password for the new account, must be at least 6 characters.
-		Password string `json:"password" validate:"required,min=6"`
+		Username string `json:"username" validate:"required,min=3,max=50"` // 用户名，3-50个字符
+		Password string `json:"password" validate:"required,min=6"`        // 密码，至少6个字符
 	}
 
-	// User registration response body.
-	RegisterReply {
-		Id       int64  `json:"id"`
-		Username string `json:"username"`
+	// 用户注册响应
+	RegisterResp {
+		UserID   int64  `json:"userId"`   // 用户ID
+		Username string `json:"username"` // 用户名
 	}
 
-	// User login request body.
+	// 用户登录请求
 	LoginReq {
-		Username string `json:"username" validate:"required"`
-		Password string `json:"password" validate:"required"`
+		Username string `json:"username" validate:"required"` // 用户名
+		Password string `json:"password" validate:"required"` // 密码
 	}
 
-	// User login response body.
-	LoginReply {
-		// A JWT token for authentication.
-		AccessToken string `json:"accessToken"`
-		// The expiration time in seconds.
-		ExpiresIn   int64  `json:"expiresIn"`
+	// 用户登录响应
+	LoginResp {
+		UserID      int64  `json:"userId"`      // 用户ID
+		Username    string `json:"username"`    // 用户名
+		AccessToken string `json:"accessToken"` // 访问令牌
+		ExpiresIn   int64  `json:"expiresIn"`   // 过期时间(秒)
+	}
+
+	// 用户信息
+	UserInfoResp {
+		UserID    int64  `json:"userId"`    // 用户ID
+		Username  string `json:"username"`  // 用户名
+		CreatedAt string `json:"createdAt"` // 创建时间
 	}
 )
 
-@server (
-	prefix:  /api/user/v1
-	group:   user
-	jwt:     Auth // (Optional) Define a JWT auth middleware if needed for other routes.
+// 无需认证的服务组
+@server(
+	prefix: /api/v1/user
+	group: user
 )
-service user {
-	@doc "User Registration"
-	@handler RegisterHandler
-	post /register (RegisterReq) returns (RegisterReply)
+service User {
+	@doc "用户注册"
+	@handler Register
+	post /register (RegisterReq) returns (RegisterResp)
+	
+	@doc "用户登录"
+	@handler Login
+	post /login (LoginReq) returns (LoginResp)
+}
 
-	@doc "User Login"
-	@handler LoginHandler
-	post /login (LoginReq) returns (LoginReply)
+// 需要认证的服务组
+@server(
+	prefix: /api/v1/user
+	group: user
+	jwt: Auth
+)
+service User {
+	@doc "获取当前用户信息"
+	@handler GetUserInfo
+	get /info returns (UserInfoResp)
 }
