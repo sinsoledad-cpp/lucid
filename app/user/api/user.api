@@ -1,0 +1,55 @@
+// app/user/api/user.api
+
+syntax = "v1"
+
+info(
+	title:   "User Service API"
+	desc:    "HTTP gateway for the user service, handling registration and login."
+	author:  "Your Name"
+	version: "1.0.0"
+)
+
+type (
+	// User registration request body.
+	RegisterReq {
+		// Username for the new account, must be non-empty.
+		Username string `json:"username" validate:"required,min=3,max=50"`
+		// Password for the new account, must be at least 6 characters.
+		Password string `json:"password" validate:"required,min=6"`
+	}
+
+	// User registration response body.
+	RegisterReply {
+		Id       int64  `json:"id"`
+		Username string `json:"username"`
+	}
+
+	// User login request body.
+	LoginReq {
+		Username string `json:"username" validate:"required"`
+		Password string `json:"password" validate:"required"`
+	}
+
+	// User login response body.
+	LoginReply {
+		// A JWT token for authentication.
+		AccessToken string `json:"accessToken"`
+		// The expiration time in seconds.
+		ExpiresIn   int64  `json:"expiresIn"`
+	}
+)
+
+@server (
+	prefix:  /api/user/v1
+	group:   user
+	jwt:     Auth // (Optional) Define a JWT auth middleware if needed for other routes.
+)
+service user {
+	@doc "User Registration"
+	@handler RegisterHandler
+	post /register (RegisterReq) returns (RegisterReply)
+
+	@doc "User Login"
+	@handler LoginHandler
+	post /login (LoginReq) returns (LoginReply)
+}
