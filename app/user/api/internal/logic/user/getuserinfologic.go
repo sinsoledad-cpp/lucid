@@ -5,6 +5,9 @@ package user
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
+	"time"
 
 	"lucid/app/user/api/internal/svc"
 	"lucid/app/user/api/internal/types"
@@ -28,7 +31,21 @@ func NewGetUserInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUs
 }
 
 func (l *GetUserInfoLogic) GetUserInfo() (resp *types.UserInfoResp, err error) {
-	// todo: add your logic here and delete this line
+	// 从上下文中获取用户ID
+	userId, err := l.ctx.Value("userId").(json.Number).Int64()
+	if err != nil {
+		return nil, fmt.Errorf("获取用户信息失败")
+	}
 
-	return
+	// 查询用户信息
+	user, err := l.svcCtx.UsersModel.FindOne(l.ctx, uint64(userId))
+	if err != nil {
+		return nil, fmt.Errorf("获取用户信息失败")
+	}
+
+	return &types.UserInfoResp{
+		UserID:    int64(user.Id),
+		Username:  user.Username,
+		CreatedAt: user.CreatedAt.Format(time.RFC3339),
+	}, nil
 }

@@ -5,14 +5,20 @@ package svc
 
 import (
 	"lucid/app/user/api/internal/config"
+	"lucid/data/model/user"
+
+	"github.com/zeromicro/go-zero/core/stores/sqlx"
 )
 
 type ServiceContext struct {
-	Config config.Config
+	Config    config.Config
+	UsersModel user.UsersModel
 }
 
 func NewServiceContext(c config.Config) *ServiceContext {
+	conn := sqlx.NewMysql(c.DB.DataSource)
 	return &ServiceContext{
-		Config: c,
+		Config:    c,
+		UsersModel: user.NewUsersModel(conn),
 	}
 }
