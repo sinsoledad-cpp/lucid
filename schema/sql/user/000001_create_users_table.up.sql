@@ -1,6 +1,6 @@
 -- schema/sql/user/001_create_users_table.sql
 
-CREATE TABLE `users` (
+CREATE TABLE IF NOT EXISTS `users` (
   `id` bigint(20) unsigned NOT NULL AUTO_INCREMENT COMMENT '用户ID, 主键',
   `username` varchar(50) NOT NULL COMMENT '用户名, 唯一',
   `password` varchar(255) NOT NULL COMMENT '密码哈希, 不允许为空',

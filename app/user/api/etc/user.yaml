@@ -3,7 +3,7 @@ Host: 0.0.0.0
 Port: 8888
 
 DB:
-  DataSource: root:password@tcp(localhost:3306)/lucid?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
+  DataSource: root:root@tcp(localhost:3306)/lucid?charset=utf8mb4&parseTime=true&loc=Asia%2FShanghai
 
 Auth:
   AccessSecret: your-jwt-secret-key-here-change-in-production
