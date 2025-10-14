@@ -20,6 +20,8 @@
 │   │                           // 这里定义了“如何”与外部系统交互的统一模式和实现。
 │   │                           // 即使连接到不同的数据库，连接、查询、事务的“模式”是共享的。
 │   ├── model/                  // 所有 goctl model 生成的数据库模型 (PO)
+│   │   ├── user/               // ✅ user 服务的数据库模型 (user_db)
+│   │   └── order/              // ✅ order 服务的数据库模型 (order_db)
 │   └── repository_impl/        // 所有 domain.repository 接口的具体实现
 │       ├── user_repo_impl.go   // 此实现会被注入 user_db 的连接
 │       └── order_repo_impl.go  // 此实现会被注入 order_db 的连接
