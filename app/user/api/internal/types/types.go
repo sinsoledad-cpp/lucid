@@ -3,30 +3,26 @@
 
 package types
 
-type LoginReq struct {
-	Username string `json:"username" validate:"required"` // 用户名
-	Password string `json:"password" validate:"required"` // 密码
+type LoginRequest struct {
+	Username string `json:"username"` // 可以是用户名或邮箱
+	Password string `json:"password"`
 }
 
-type LoginResp struct {
-	UserID      int64  `json:"userId"`      // 用户ID
-	Username    string `json:"username"`    // 用户名
-	AccessToken string `json:"accessToken"` // 访问令牌
-	ExpiresIn   int64  `json:"expiresIn"`   // 过期时间(秒)
+type LoginResponse struct {
+	AccessToken  string `json:"accessToken"`
+	AccessExpire int64  `json:"accessExpire"`
 }
 
-type RegisterReq struct {
-	Username string `json:"username" validate:"required,min=3,max=50"` // 用户名，3-50个字符
-	Password string `json:"password" validate:"required,min=6"`        // 密码，至少6个字符
+type RegisterRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Email    string `json:"email"` // <--- 修改：已移除 'optional' 标签，变为必填项
 }
 
-type RegisterResp struct {
-	UserID   int64  `json:"userId"`   // 用户ID
-	Username string `json:"username"` // 用户名
-}
-
-type UserInfoResp struct {
-	UserID    int64  `json:"userId"`    // 用户ID
-	Username  string `json:"username"`  // 用户名
-	CreatedAt string `json:"createdAt"` // 创建时间
+type UserInfoResponse struct {
+	Id        int64  `json:"id"`
+	Username  string `json:"username"`
+	Email     string `json:"email"` // 对应注册时的必填 email
+	Role      string `json:"role"`  // 关键字段: 用于 Casbin 的 'sub'
+	CreatedAt string `json:"created_at"`
 }

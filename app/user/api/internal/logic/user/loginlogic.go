@@ -5,15 +5,15 @@ package user
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"lucid/app/user/domain/entity"
+	"lucid/common/utils/jwtx"
 	"time"
 
 	"lucid/app/user/api/internal/svc"
 	"lucid/app/user/api/internal/types"
 
-	"github.com/golang-jwt/jwt/v4"
 	"github.com/zeromicro/go-zero/core/logx"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type LoginLogic struct {
@@ -22,7 +22,7 @@ type LoginLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 用户登录
+// NewLoginLogic 用户登录
 func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic {
 	return &LoginLogic{
 		Logger: logx.WithContext(ctx),
@@ -31,43 +31,48 @@ func NewLoginLogic(ctx context.Context, svcCtx *svc.ServiceContext) *LoginLogic 
 	}
 }
 
-func (l *LoginLogic) Login(req *types.LoginReq) (resp *types.LoginResp, err error) {
-	// 查询用户是否存在
-	user, err := l.svcCtx.UsersModel.FindOneByUsername(l.ctx, req.Username)
+func (l *LoginLogic) Login(req *types.LoginRequest) (resp *types.LoginResponse, err error) {
+	// 1. ⭐ 调用仓储接口(Repository)查找用户
+	// (根据 API 定义，允许用 username 或 email 登录)
+	user, err := l.svcCtx.UserRepo.FindByUsername(l.ctx, req.Username)
 	if err != nil {
-		return nil, fmt.Errorf("用户名或密码错误")
+		// 如果用 Username 找不到，尝试用 Email 找
+		if errors.Is(err, entity.ErrUserNotFound) { //
+			user, err = l.svcCtx.UserRepo.FindByEmail(l.ctx, req.Username)
+			if err != nil {
+				// 无论是没找到还是数据库错误，都返回密码错误，防止信息泄露
+				return nil, entity.ErrPasswordMismatch //
+			}
+		} else {
+			// 其他数据库错误
+			l.Logger.Errorf("FindByUsername error: %v", err)
+			return nil, err
+		}
 	}
 
-	// 验证密码
-	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
-	if err != nil {
-		return nil, fmt.Errorf("用户名或密码错误")
+	// 2. ⭐ 调用领域实体(Entity)的业务方法校验密码
+	if !user.CheckPassword(req.Password) {
+		return nil, entity.ErrPasswordMismatch //
 	}
 
-	// 生成JWT令牌
+	// 3. 密码正确，生成 JWT
 	now := time.Now().Unix()
+	// 从 svcCtx 获取 Auth 配置
 	accessExpire := l.svcCtx.Config.Auth.AccessExpire
-	accessToken, err := l.genToken(user.Id, user.Username, now, accessExpire)
+	accessToken, err := jwtx.GenerateToken(
+		l.svcCtx.Config.Auth.AccessSecret,
+		now,
+		accessExpire,
+		user.ID,
+		user.Role,
+	)
 	if err != nil {
-		return nil, fmt.Errorf("登录失败，请稍后重试")
+		return nil, err
 	}
 
-	return &types.LoginResp{
-		UserID:      int64(user.Id),
-		Username:    user.Username,
-		AccessToken: accessToken,
-		ExpiresIn:   accessExpire,
+	// 4. 返回响应
+	return &types.LoginResponse{
+		AccessToken:  accessToken,
+		AccessExpire: now + accessExpire,
 	}, nil
-}
-
-// 生成JWT令牌
-func (l *LoginLogic) genToken(userId uint64, username string, iat, seconds int64) (string, error) {
-	claims := make(jwt.MapClaims)
-	claims["exp"] = iat + seconds
-	claims["iat"] = iat
-	claims["userId"] = userId
-	claims["username"] = username
-	token := jwt.New(jwt.SigningMethodHS256)
-	token.Claims = claims
-	return token.SignedString([]byte(l.svcCtx.Config.Auth.AccessSecret))
 }

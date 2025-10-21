@@ -5,15 +5,15 @@ package user
 
 import (
 	"context"
-	"fmt"
+	"errors"
+	"lucid/app/user/domain/entity"
+	"lucid/common/utils/jwtx"
+	"time"
 
 	"lucid/app/user/api/internal/svc"
 	"lucid/app/user/api/internal/types"
-	"lucid/data/model/user"
 
 	"github.com/zeromicro/go-zero/core/logx"
-	"github.com/zeromicro/go-zero/core/stores/sqlx"
-	"golang.org/x/crypto/bcrypt"
 )
 
 type RegisterLogic struct {
@@ -22,7 +22,7 @@ type RegisterLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 用户注册
+// NewRegisterLogic 用户注册
 func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *RegisterLogic {
 	return &RegisterLogic{
 		Logger: logx.WithContext(ctx),
@@ -31,42 +31,49 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 	}
 }
 
-func (l *RegisterLogic) Register(req *types.RegisterReq) (resp *types.RegisterResp, err error) {
-	// 检查用户名是否已存在
-	_, err = l.svcCtx.UsersModel.FindOneByUsername(l.ctx, req.Username)
-	if err == nil {
-		return nil, fmt.Errorf("用户名已存在")
-	} else if err != sqlx.ErrNotFound {
-		logx.Errorf("查询用户失败: %v", err)
-		return nil, fmt.Errorf("注册失败，请稍后重试")
+func (l *RegisterLogic) Register(req *types.RegisterRequest) (resp *types.LoginResponse, err error) {
+	// 1. 检查用户名是否已存在
+	// ⭐ 调用仓储接口
+	if _, err := l.svcCtx.UserRepo.FindByUsername(l.ctx, req.Username); err == nil {
+		return nil, errors.New("username already exists")
 	}
 
-	// 对密码进行加密
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	// 2. 检查邮箱是否已存在
+	// ⭐ 调用仓储接口
+	if _, err := l.svcCtx.UserRepo.FindByEmail(l.ctx, req.Email); err == nil {
+		return nil, errors.New("email already exists")
+	}
+
+	// 3. ⭐ 调用领域实体(Entity)的工厂函数创建 User
+	user, err := entity.NewUser(req.Username, req.Email, req.Password)
 	if err != nil {
-		logx.Errorf("密码加密失败: %v", err)
-		return nil, fmt.Errorf("注册失败，请稍后重试")
+		l.Logger.Errorf("NewUser error: %v", err)
+		return nil, errors.New("failed to create user")
 	}
 
-	// 创建用户
-	result, err := l.svcCtx.UsersModel.Insert(l.ctx, &user.Users{
-		Username: req.Username,
-		Password: string(hashedPassword),
-	})
+	// 4. ⭐ 调用仓储接口(Repository)持久化
+	if err := l.svcCtx.UserRepo.Create(l.ctx, user); err != nil {
+		l.Logger.Errorf("UserRepo.Create error: %v", err)
+		return nil, errors.New("failed to save user")
+	}
+
+	// 5. 注册成功，自动登录 (生成 JWT)
+	// (user.ID 已在 Create 方法中被回填)
+	now := time.Now().Unix()
+	accessExpire := l.svcCtx.Config.Auth.AccessExpire
+	accessToken, err := jwtx.GenerateToken(
+		l.svcCtx.Config.Auth.AccessSecret,
+		now,
+		accessExpire,
+		user.ID,
+		user.Role,
+	)
 	if err != nil {
-		logx.Errorf("创建用户失败: %v", err)
-		return nil, fmt.Errorf("注册失败，请稍后重试")
+		return nil, err
 	}
 
-	// 获取用户ID
-	userId, err := result.LastInsertId()
-	if err != nil {
-		logx.Errorf("获取用户ID失败: %v", err)
-		return nil, fmt.Errorf("注册失败，请稍后重试")
-	}
-
-	return &types.RegisterResp{
-		UserID:   userId,
-		Username: req.Username,
+	return &types.LoginResponse{
+		AccessToken:  accessToken,
+		AccessExpire: now + accessExpire,
 	}, nil
 }

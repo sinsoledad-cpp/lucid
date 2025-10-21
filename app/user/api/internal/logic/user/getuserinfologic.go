@@ -5,8 +5,8 @@ package user
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
+	"errors"
+	"lucid/common/utils/jwtx"
 	"time"
 
 	"lucid/app/user/api/internal/svc"
@@ -21,7 +21,7 @@ type GetUserInfoLogic struct {
 	svcCtx *svc.ServiceContext
 }
 
-// 获取当前用户信息
+// NewGetUserInfoLogic 获取当前登录用户信息
 func NewGetUserInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUserInfoLogic {
 	return &GetUserInfoLogic{
 		Logger: logx.WithContext(ctx),
@@ -30,22 +30,25 @@ func NewGetUserInfoLogic(ctx context.Context, svcCtx *svc.ServiceContext) *GetUs
 	}
 }
 
-func (l *GetUserInfoLogic) GetUserInfo() (resp *types.UserInfoResp, err error) {
-	// 从上下文中获取用户ID
-	userId, err := l.ctx.Value("userId").(json.Number).Int64()
+func (l *GetUserInfoLogic) GetUserInfo() (resp *types.UserInfoResponse, err error) {
+	claims, err := jwtx.GetClaimsFromCtx(l.ctx)
 	if err != nil {
-		return nil, fmt.Errorf("获取用户信息失败")
+		return nil, err
 	}
 
-	// 查询用户信息
-	user, err := l.svcCtx.UsersModel.FindOne(l.ctx, uint64(userId))
+	// 3. ⭐ 调用仓储接口
+	user, err := l.svcCtx.UserRepo.FindByID(l.ctx, claims.UserID)
 	if err != nil {
-		return nil, fmt.Errorf("获取用户信息失败")
+		l.Logger.Errorf("FindByID error: %v", err)
+		return nil, errors.New("user not found")
 	}
 
-	return &types.UserInfoResp{
-		UserID:    int64(user.Id),
+	// 4. ⭐ 转换为 API 响应 (DTO)
+	return &types.UserInfoResponse{
+		Id:        user.ID,
 		Username:  user.Username,
+		Email:     user.Email,
+		Role:      user.Role,
 		CreatedAt: user.CreatedAt.Format(time.RFC3339),
 	}, nil
 }

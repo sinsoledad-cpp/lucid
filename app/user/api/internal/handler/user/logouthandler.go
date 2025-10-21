@@ -11,15 +11,15 @@ import (
 	"lucid/app/user/api/internal/svc"
 )
 
-// 获取当前登录用户信息
-func GetUserInfoHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
+// 用户登出
+func LogoutHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		l := user.NewGetUserInfoLogic(r.Context(), svcCtx)
-		resp, err := l.GetUserInfo()
+		l := user.NewLogoutLogic(r.Context(), svcCtx)
+		err := l.Logout()
 		if err != nil {
 			httpx.ErrorCtx(r.Context(), w, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			httpx.Ok(w)
 		}
 	}
 }

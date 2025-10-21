@@ -2,7 +2,7 @@
 // versions:
 //  goctl version: 1.9.1
 
-package user
+package model
 
 import (
 	"context"
@@ -27,6 +27,7 @@ type (
 	usersModel interface {
 		Insert(ctx context.Context, data *Users) (sql.Result, error)
 		FindOne(ctx context.Context, id uint64) (*Users, error)
+		FindOneByEmail(ctx context.Context, email string) (*Users, error)
 		FindOneByUsername(ctx context.Context, username string) (*Users, error)
 		Update(ctx context.Context, data *Users) error
 		Delete(ctx context.Context, id uint64) error
@@ -38,11 +39,13 @@ type (
 	}
 
 	Users struct {
-		Id        uint64    `db:"id"`         // 用户ID, 主键
-		Username  string    `db:"username"`   // 用户名, 唯一
-		Password  string    `db:"password"`   // 密码哈希, 不允许为空
-		CreatedAt time.Time `db:"created_at"` // 创建时间, 由数据库自动生成
-		UpdatedAt time.Time `db:"updated_at"` // 更新时间, 由数据库自动生成和更新
+		Id           uint64    `db:"id"`
+		Username     string    `db:"username"`      // 用户名，用于登录
+		Email        string    `db:"email"`         // 邮箱，用于登录或找回密码
+		PasswordHash string    `db:"password_hash"` // bcrypt 哈希后的密码
+		Role         string    `db:"role"`          // 用户角色 (e.g., shortener, admin)，用于 Casbin
+		CreatedAt    time.Time `db:"created_at"`    // 创建时间 (微秒精度)
+		UpdatedAt    time.Time `db:"updated_at"`    // 更新时间 (微秒精度)
 	}
 )
 
@@ -73,6 +76,20 @@ func (m *defaultUsersModel) FindOne(ctx context.Context, id uint64) (*Users, err
 	}
 }
 
+func (m *defaultUsersModel) FindOneByEmail(ctx context.Context, email string) (*Users, error) {
+	var resp Users
+	query := fmt.Sprintf("select %s from %s where `email` = ? limit 1", usersRows, m.table)
+	err := m.conn.QueryRowCtx(ctx, &resp, query, email)
+	switch err {
+	case nil:
+		return &resp, nil
+	case sqlx.ErrNotFound:
+		return nil, ErrNotFound
+	default:
+		return nil, err
+	}
+}
+
 func (m *defaultUsersModel) FindOneByUsername(ctx context.Context, username string) (*Users, error) {
 	var resp Users
 	query := fmt.Sprintf("select %s from %s where `username` = ? limit 1", usersRows, m.table)
@@ -88,14 +105,14 @@ func (m *defaultUsersModel) FindOneByUsername(ctx context.Context, username stri
 }
 
 func (m *defaultUsersModel) Insert(ctx context.Context, data *Users) (sql.Result, error) {
-	query := fmt.Sprintf("insert into %s (%s) values (?, ?)", m.table, usersRowsExpectAutoSet)
-	ret, err := m.conn.ExecCtx(ctx, query, data.Username, data.Password)
+	query := fmt.Sprintf("insert into %s (%s) values (?, ?, ?, ?)", m.table, usersRowsExpectAutoSet)
+	ret, err := m.conn.ExecCtx(ctx, query, data.Username, data.Email, data.PasswordHash, data.Role)
 	return ret, err
 }
 
 func (m *defaultUsersModel) Update(ctx context.Context, newData *Users) error {
 	query := fmt.Sprintf("update %s set %s where `id` = ?", m.table, usersRowsWithPlaceHolder)
-	_, err := m.conn.ExecCtx(ctx, query, newData.Username, newData.Password, newData.Id)
+	_, err := m.conn.ExecCtx(ctx, query, newData.Username, newData.Email, newData.PasswordHash, newData.Role, newData.Id)
 	return err
 }
 
