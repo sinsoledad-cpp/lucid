@@ -6,10 +6,13 @@ package user
 import (
 	"net/http"
 
-	"github.com/zeromicro/go-zero/rest/httpx"
 	"lucid/app/user/api/internal/logic/user"
 	"lucid/app/user/api/internal/svc"
 	"lucid/app/user/api/internal/types"
+
+	"github.com/zeromicro/go-zero/rest/httpx"
+
+	"lucid/common/utils/response"
 )
 
 // 用户注册
@@ -17,16 +20,16 @@ func RegisterHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req types.RegisterRequest
 		if err := httpx.Parse(r, &req); err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.ClientError(r.Context(), w, response.RequestError, err.Error())
 			return
 		}
 
 		l := user.NewRegisterLogic(r.Context(), svcCtx)
 		resp, err := l.Register(&req)
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.LogicError(r.Context(), w, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			response.Ok(r.Context(), w, resp)
 		}
 	}
 }

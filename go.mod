@@ -2,16 +2,25 @@ module lucid
 
 go 1.25.0
 
-require github.com/zeromicro/go-zero v1.9.2
+require (
+	github.com/bwmarrin/snowflake v0.3.0
+	github.com/casbin/casbin/v2 v2.128.0
+	github.com/golang-jwt/jwt/v4 v4.5.2
+	github.com/zeromicro/go-zero v1.9.2
+	golang.org/x/crypto v0.33.0
+)
 
 require (
+	filippo.io/edwards25519 v1.1.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
+	github.com/bmatcuk/doublestar/v4 v4.6.1 // indirect
+	github.com/casbin/govaluate v1.3.0 // indirect
 	github.com/cenkalti/backoff/v4 v4.3.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/fatih/color v1.18.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/golang-jwt/jwt/v4 v4.5.2 // indirect
+	github.com/go-sql-driver/mysql v1.9.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/grafana/pyroscope-go v1.2.7 // indirect
 	github.com/grafana/pyroscope-go/godeltaprof v0.1.9 // indirect

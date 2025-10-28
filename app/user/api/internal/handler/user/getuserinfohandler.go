@@ -6,9 +6,10 @@ package user
 import (
 	"net/http"
 
-	"github.com/zeromicro/go-zero/rest/httpx"
 	"lucid/app/user/api/internal/logic/user"
 	"lucid/app/user/api/internal/svc"
+
+	"lucid/common/utils/response"
 )
 
 // 获取当前登录用户信息
@@ -17,9 +18,9 @@ func GetUserInfoHandler(svcCtx *svc.ServiceContext) http.HandlerFunc {
 		l := user.NewGetUserInfoLogic(r.Context(), svcCtx)
 		resp, err := l.GetUserInfo()
 		if err != nil {
-			httpx.ErrorCtx(r.Context(), w, err)
+			response.LogicError(r.Context(), w, err)
 		} else {
-			httpx.OkJsonCtx(r.Context(), w, resp)
+			response.Ok(r.Context(), w, resp)
 		}
 	}
 }

@@ -6,8 +6,10 @@ package user
 import (
 	"context"
 	"errors"
+	"lucid/app/user/api/internal/logic/errcode"
 	"lucid/app/user/domain/entity"
 	"lucid/common/utils/jwtx"
+	"lucid/common/utils/response"
 	"time"
 
 	"lucid/app/user/api/internal/svc"
@@ -30,35 +32,42 @@ func NewRegisterLogic(ctx context.Context, svcCtx *svc.ServiceContext) *Register
 		svcCtx: svcCtx,
 	}
 }
-
 func (l *RegisterLogic) Register(req *types.RegisterRequest) (resp *types.LoginResponse, err error) {
-	// 1. 检查用户名是否已存在
-	// ⭐ 调用仓储接口
-	if _, err := l.svcCtx.UserRepo.FindByUsername(l.ctx, req.Username); err == nil {
-		return nil, errors.New("username already exists")
+	// 1. 检查用户名
+	_, err = l.svcCtx.UserRepo.FindByUsername(l.ctx, req.Username)
+	if err == nil {
+		return nil, errcode.ErrUsernameExists // <-- 3. 直接返回错误实例
+	}
+	if !errors.Is(err, entity.ErrUserNotFound) {
+		l.Logger.Errorf("FindByUsername error: %v", err)
+		return nil, errcode.ErrInternalError // 500 错误
 	}
 
-	// 2. 检查邮箱是否已存在
-	// ⭐ 调用仓储接口
-	if _, err := l.svcCtx.UserRepo.FindByEmail(l.ctx, req.Email); err == nil {
-		return nil, errors.New("email already exists")
+	// 2. 检查邮箱
+	_, err = l.svcCtx.UserRepo.FindByEmail(l.ctx, req.Email)
+	if err == nil {
+		return nil, errcode.ErrEmailExists // <-- 3. 直接返回错误实例
+	}
+	if !errors.Is(err, entity.ErrUserNotFound) {
+		l.Logger.Errorf("FindByEmail error: %v", err)
+		return nil, errcode.ErrInternalError // 500 错误
 	}
 
-	// 3. ⭐ 调用领域实体(Entity)的工厂函数创建 User
+	// 3. 创建 User 实体
 	user, err := entity.NewUser(req.Username, req.Email, req.Password)
 	if err != nil {
-		l.Logger.Errorf("NewUser error: %v", err)
-		return nil, errors.New("failed to create user")
+		// 4. 对于动态错误消息 (如参数校验)，仍然使用 NewBizError
+		l.Logger.Infof("NewUser validation error: %v", err)
+		return nil, response.NewBizError(response.RequestError, err.Error())
 	}
 
-	// 4. ⭐ 调用仓储接口(Repository)持久化
+	// 4. 持久化
 	if err := l.svcCtx.UserRepo.Create(l.ctx, user); err != nil {
 		l.Logger.Errorf("UserRepo.Create error: %v", err)
-		return nil, errors.New("failed to save user")
+		return nil, errcode.ErrInternalError // 500 错误
 	}
 
-	// 5. 注册成功，自动登录 (生成 JWT)
-	// (user.ID 已在 Create 方法中被回填)
+	// 5. 生成 JWT
 	now := time.Now().Unix()
 	accessExpire := l.svcCtx.Config.Auth.AccessExpire
 	accessToken, err := jwtx.GenerateToken(
@@ -69,7 +78,8 @@ func (l *RegisterLogic) Register(req *types.RegisterRequest) (resp *types.LoginR
 		user.Role,
 	)
 	if err != nil {
-		return nil, err
+		l.Logger.Errorf("GenerateToken error: %v", err)
+		return nil, errcode.ErrInternalError // 500 错误
 	}
 
 	return &types.LoginResponse{

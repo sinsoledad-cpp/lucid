@@ -6,6 +6,7 @@ package handler
 import (
 	"net/http"
 
+	admin "lucid/app/user/api/internal/handler/admin"
 	user "lucid/app/user/api/internal/handler/user"
 	"lucid/app/user/api/internal/svc"
 
@@ -13,6 +14,22 @@ import (
 )
 
 func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
+	server.AddRoutes(
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.AuthzMiddleware},
+			[]rest.Route{
+				{
+					// 获取所有用户列表 (管理员)
+					Method:  http.MethodGet,
+					Path:    "/users",
+					Handler: admin.ListUsersHandler(serverCtx),
+				},
+			}...,
+		),
+		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
+		rest.WithPrefix("/api/v1/admin"),
+	)
+
 	server.AddRoutes(
 		[]rest.Route{
 			{
@@ -32,20 +49,23 @@ func RegisterHandlers(server *rest.Server, serverCtx *svc.ServiceContext) {
 	)
 
 	server.AddRoutes(
-		[]rest.Route{
-			{
-				// 获取当前登录用户信息
-				Method:  http.MethodGet,
-				Path:    "/info",
-				Handler: user.GetUserInfoHandler(serverCtx),
-			},
-			{
-				// 用户登出
-				Method:  http.MethodPost,
-				Path:    "/logout",
-				Handler: user.LogoutHandler(serverCtx),
-			},
-		},
+		rest.WithMiddlewares(
+			[]rest.Middleware{serverCtx.AuthzMiddleware},
+			[]rest.Route{
+				{
+					// 获取当前登录用户信息
+					Method:  http.MethodGet,
+					Path:    "/info",
+					Handler: user.GetUserInfoHandler(serverCtx),
+				},
+				{
+					// 用户登出
+					Method:  http.MethodPost,
+					Path:    "/logout",
+					Handler: user.LogoutHandler(serverCtx),
+				},
+			}...,
+		),
 		rest.WithJwt(serverCtx.Config.Auth.AccessSecret),
 		rest.WithPrefix("/api/v1/user"),
 	)
