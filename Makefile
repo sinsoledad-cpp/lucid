@@ -30,3 +30,6 @@ migrate_drop:
 #goctl rpc protoc protos/shortener/v1/shortener.proto --go_out=. --go-grpc_out=. --zrpc_out=./gen/go --style gozero
 
 # goctl template init --home template
+
+# docker build -t user-api:latest -f ./scripts/Dockerfile .
+# docker run -d -p 8888:8888 --name my-user-api user-api:latest

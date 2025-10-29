@@ -2,6 +2,7 @@ networks:
   net01:
     driver: bridge
 
+name: lucid
 services:
 
 #----------------------------------------------------------------------------------------------
@@ -30,6 +31,20 @@ services:
       interval: 10s
       timeout: 5s
       retries: 6
+#---------------------------------------------------------------------------------------------
+#  user-api:
+#    image: user-api:latest     # 使用你刚刚构建的镜像
+#    container_name: user-api-lucid
+#    hostname: user-api
+#    restart: unless-stopped
+#    ports:
+#      - "8888:8888"            # 映射你在 user.yaml 中定义的端口
+#    networks:
+#      - net01                  # 把它放进和 mysql 相同的网络
+#    depends_on: # 告诉 Compose 要等 mysql 准备好
+#      mysql:
+#        condition: service_healthy # 等待 mysql 的 healthcheck 通过
+#---------------------------------------------------------------------------------------------
 #  redis:
 #    image: "bitnami/redis:latest"
 #    container_name: redis-lucid # 强制指定容器的名称为 mysql
